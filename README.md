@@ -4,7 +4,7 @@ A bulk invoice upload and processing system built as part of the **Kalvium Simul
 
 The application allows users to upload invoice data using a CSV file, process invoices in the background, track processing progress, and view the result of each invoice independently.
 
-> **Current Status:** 🚧 Under Development
+> **Current Status:**  Under Development
 
 ---
 
