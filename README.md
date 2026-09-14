@@ -1,253 +1,78 @@
-# ClearTax Bulk Invoice Processing
+# ClearTax Bulk Invoice Reconciliation
 
-A bulk invoice upload and processing system built as part of the **Kalvium Simulated Work** program.
+ClearTax Bulk Invoice Reconciliation is a Next.js application for uploading
+GSTR-2B reference data and purchase-register CSV files, tracking reconciliation
+batches, and reviewing persisted match, mismatch, and row-error results.
 
-The application allows users to upload invoice data using a CSV file, process invoices in the background, track processing progress, and view the result of each invoice independently.
+This project is built as part of the Kalvium Simulated Work program.
 
-> **Current Status:** 🚧 Under Development
+## Current Status
 
----
+Development is in progress. The app now includes authentication, a protected
+workspace shell, database-backed dashboards, upload validation, reconciliation
+metadata APIs, structured logging, centralized API errors, Prisma migrations,
+and idempotent demo seed data.
 
-## Problem Statement
+Durable background processing with Cloud Tasks and Cloud Storage backed file
+handling is still planned. The current upload flow validates files and persists
+reference-import or batch metadata; the seeded workspace demonstrates persisted
+row-level reconciliation results.
 
-ClearTax wants a **bulk invoice upload system** where users can upload invoice data through a CSV file.
+## What Works Now
 
-The system should:
+- Credentials sign in and account creation with business GSTIN ownership.
+- Optional Google OAuth sign in when Google credentials are configured.
+- Protected dashboard, reconciliation history, reference-import history, and
+  detail pages.
+- GSTR-2B JSON upload validation and reference import creation.
+- Purchase Register CSV upload validation and reconciliation batch creation.
+- Server-rendered summaries from PostgreSQL-backed Prisma models.
+- Batch status and paginated reconciliation-result API endpoints.
+- Row-level result model for matched, mismatched, unmatched, and error outcomes.
+- Centralized JSON API response shape, reusable error codes, request IDs, and
+  Pino structured request logging.
+- Prisma migration history and idempotent local demo seed data.
 
-* Process uploaded invoices in the background.
-* Show the progress of invoice processing.
-* Display processed invoices in a scrollable table.
-* Mark invoices with a **Match** or **Mismatch** status.
-* Continue processing remaining invoices even if an individual row fails.
-* Display errors for failed rows individually.
-
----
-
-## Project Goal
-
-The goal is to provide a reliable bulk-processing experience where a large number of invoices can be handled without requiring users to upload or process invoices individually.
-
-A failure in one invoice should not affect the processing of other invoices.
-
-### Expected Flow
-
-```text
-Upload CSV
-    ↓
-Validate File
-    ↓
-Create Processing Batch
-    ↓
-Process Invoice Rows in Background
-    ↓
-Validate Each Row
-    ↓
-Match / Mismatch / Failed
-    ↓
-Update Processing Progress
-    ↓
-Display Results
-```
-
----
-
-## Core Features
-
-### CSV Upload
-
-Users will be able to upload a CSV file containing multiple invoice records.
-
-The system will validate:
-
-* File type
-* Required CSV columns
-* Individual invoice data
-* Invalid or missing values
-
----
-
-### Background Processing
-
-Invoice processing will happen in the background so that the user does not need to wait for the complete CSV to finish processing before receiving a response.
-
-The system will track:
-
-* Total invoices
-* Processed invoices
-* Matched invoices
-* Mismatched invoices
-* Failed invoices
-
----
-
-### Invoice Status
-
-Each processed invoice can have one of the following results:
-
-#### `MATCH`
-
-The uploaded invoice successfully matches the corresponding reference/system invoice.
-
-#### `MISMATCH`
-
-The invoice is valid but one or more values do not match the reference/system data.
-
-#### `FAILED`
-
-The invoice row could not be processed because of invalid or missing data or another processing error.
-
----
-
-### Row-Level Error Handling
-
-Every CSV row will be processed independently.
-
-For example:
+## Product Flow
 
 ```text
-Row 1 → MATCH
-Row 2 → MATCH
-Row 3 → FAILED
-Row 4 → MISMATCH
-Row 5 → MATCH
+Create account or sign in
+        |
+Open authenticated workspace
+        |
+Upload or create a GSTR-2B reference import
+        |
+Upload a purchase-register CSV against a reference import
+        |
+Create a reconciliation batch
+        |
+Track batch status and counters
+        |
+Review batch details and row-level reconciliation results
 ```
-
-Failure of **Row 3 will not stop Rows 4 and 5 from being processed**.
-
-Each failed row will contain an appropriate error message explaining what went wrong.
-
----
-
-### Processing Progress
-
-While processing is running, the user will be able to see progress such as:
-
-```text
-Processing invoices...
-
-63%
-
-315 / 500 processed
-
-Matched:      240
-Mismatched:    61
-Failed:        14
-```
-
----
-
-### Invoice Results Table
-
-Processed invoices will be displayed in a scrollable table.
-
-Example:
-
-| Invoice |  Amount | Status   | Details         |
-| ------- | ------: | -------- | --------------- |
-| INV-001 | ₹15,000 | MATCH    | —               |
-| INV-002 |  ₹8,200 | MISMATCH | Amount mismatch |
-| INV-003 |       — | FAILED   | Invalid amount  |
-| INV-004 | ₹12,500 | MATCH    | —               |
-
-The final implementation may also provide filters for:
-
-* All
-* Matched
-* Mismatched
-* Failed
-
----
-
-## Match / Mismatch Rules
-
-The exact business rules and reference data used to determine whether an invoice is a **Match** or **Mismatch** are currently being finalized.
-
-Before implementation, the team will define:
-
-* Which field identifies an invoice
-* What existing/reference data invoices are compared against
-* Which fields participate in reconciliation
-* What conditions result in `MATCH`
-* What conditions result in `MISMATCH`
-
----
-
-## Planned Development
-
-The project will be developed incrementally.
-
-```text
-Project Setup
-    ↓
-CSV Format & Sample Data
-    ↓
-CSV Upload
-    ↓
-CSV Validation
-    ↓
-Invoice Processing
-    ↓
-Match / Mismatch Logic
-    ↓
-Row-Level Error Handling
-    ↓
-Background Processing
-    ↓
-Progress Tracking
-    ↓
-Results Table
-    ↓
-Testing & Documentation
-```
-
----
 
 ## Tech Stack
 
-> The final technology choices will be updated as development progresses.
-
-### Frontend
-
-* To be finalized
-
-### Backend
-
-* To be finalized
-
-### Database
-
-* To be finalized
-
-### Background Processing
-
-* To be finalized
-
----
-
-## Repository Structure
-
-The project structure will be documented once the initial application setup is completed.
-
-```text
-SW2627-ClearTax/
-├── README.md
-└── ...
-```
-
----
+- Next.js 16 App Router
+- React 19
+- TypeScript
+- Tailwind CSS 4
+- NextAuth.js 4
+- Prisma 7 with PostgreSQL
+- `@prisma/adapter-pg` and `pg`
+- Zod validation
+- Pino structured logging
+- bcrypt password hashing
 
 ## Getting Started
 
-The project is currently under active setup.
+### Prerequisites
 
-### Clone the Repository
+- Node.js compatible with the Next.js version in `package.json`
+- npm
+- PostgreSQL database
 
-```bash
-git clone <repository-url>
-cd SW2627-ClearTax
-```
-
-### Install Dependencies
+### Install
 
 ```bash
 npm install
@@ -255,186 +80,293 @@ npm install
 
 ### Configure Environment
 
-Create a local environment file from the committed example:
+Create a local environment file:
 
 ```bash
 cp .env.example .env
 ```
 
-Replace the placeholder values in `.env` with local development values. At minimum, local development requires `DATABASE_URL` so Prisma can connect to PostgreSQL and `AUTH_SECRET` so Auth.js can encrypt JWT-backed sessions. Use `APP_URL="http://localhost:3000"` and `NEXTAUTH_URL="http://localhost:3000"` for the local Next.js app unless you run it on a different origin.
+At minimum, set:
 
-Apply the committed Prisma migrations before seeding or running application workflows that use the database:
+```text
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DATABASE?schema=public"
+APP_URL="http://localhost:3000"
+NEXTAUTH_URL="http://localhost:3000"
+AUTH_SECRET="replace-with-a-generated-secret"
+```
+
+If Google OAuth is needed, also set `GOOGLE_CLIENT_ID` and
+`GOOGLE_CLIENT_SECRET`.
+
+### Database
+
+Apply the committed migrations:
 
 ```bash
 npx prisma migrate dev
 ```
 
-See [`docs/database-migrations.md`](docs/database-migrations.md) for the full schema-evolution workflow, including production deployment with committed migrations.
-
-After applying migrations, seed the local demo account and business:
+Generate Prisma Client if it was not generated by the migration command:
 
 ```bash
-npx prisma db seed
+npx prisma generate
 ```
 
-The seed creates a local demo user (`demo@cleartax.local`) for credentials sign-in. Its demo password is defined only in `prisma/seed.ts`, and the database stores only a bcrypt hash.
+Seed the local demo workspace:
 
-The `.env.example` file documents the environment-variable contract and contains placeholder values only. Real `.env` files must never be committed because they can contain database credentials, authentication secrets, service-account paths, or other sensitive configuration.
+```bash
+npm run db:seed
+```
 
-### Environment Variables
+The seed is idempotent. It creates:
 
-| Variable | Purpose | Local | Production | Exposure |
-| --- | --- | --- | --- | --- |
-| `DATABASE_URL` | PostgreSQL connection used by Prisma | Required | Required | Server only |
-| `APP_URL` | Canonical application origin for server-side redirects, callbacks, and links | Required | Required | Server only |
-| `NEXTAUTH_URL` | Canonical Auth.js / NextAuth origin | Required | Required | Server only |
-| `AUTH_SECRET` | Secret used by Auth.js to encrypt JWT-backed sessions | Required | Required | Server only |
-| `GCP_PROJECT_ID` | Google Cloud project identifier for deployed infrastructure | Planned | Required | Server only |
-| `GOOGLE_APPLICATION_CREDENTIALS` | Optional local path for Google Application Default Credentials | Optional | Platform-managed or optional | Server only |
-| `GCP_STORAGE_BUCKET` | Private Cloud Storage bucket for uploaded CSV and GSTR-2B files | Planned | Required when storage is enabled | Server only |
-| `GCP_TASKS_LOCATION` | Google Cloud region for Cloud Tasks | Planned | Required when background tasks are enabled | Server only |
-| `GCP_TASKS_QUEUE` | Cloud Tasks queue for background reconciliation work | Planned | Required when background tasks are enabled | Server only |
+- Demo user: `demo@cleartax.local`
+- Demo password: `ClearTaxDemo#2026`
+- One demo business
+- One active GSTR-2B-like reference import
+- Ten reference invoices
+- One completed reconciliation batch with matched, mismatched, and error rows
 
-No current environment variable is browser-safe. Do not add the `NEXT_PUBLIC_` prefix to database, authentication, GCP, storage, or task-queue values because `NEXT_PUBLIC_*` values are exposed to client-side JavaScript.
+Do not use the demo credentials outside local development or demos.
 
-### Production Configuration
+### Run Locally
 
-Production values must be provided by the deployment platform or cloud runtime environment, not committed to Git. Production configuration is expected to include the PostgreSQL/Cloud SQL database connection, application URL, authentication secret, GCP project, private Cloud Storage bucket, and Cloud Tasks queue settings.
+```bash
+npm run dev
+```
 
-Do not commit service-account JSON files, private keys, API tokens, database passwords, or production `.env` files.
+Open `http://localhost:3000`.
 
----
+## Available Scripts
+
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start the local Next.js dev server |
+| `npm run build` | Build the production app |
+| `npm run start` | Start the built app |
+| `npm run lint` | Run ESLint |
+| `npm run db:seed` | Seed the local demo workspace |
+
+## Environment Variables
+
+| Variable | Purpose | Required Locally |
+| --- | --- | --- |
+| `DATABASE_URL` | PostgreSQL connection used by Prisma | Yes |
+| `APP_URL` | Canonical app origin for server-side redirects and links | Yes |
+| `NEXTAUTH_URL` | NextAuth callback origin | Yes |
+| `AUTH_SECRET` | Session/JWT signing secret | Yes |
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID | Optional |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret | Optional |
+| `GCP_PROJECT_ID` | Planned GCP project for deployed infrastructure | Planned |
+| `GOOGLE_APPLICATION_CREDENTIALS` | Optional local ADC/service-account path | Optional |
+| `GCP_STORAGE_BUCKET` | Planned private bucket for uploaded source files | Planned |
+| `GCP_TASKS_LOCATION` | Planned Cloud Tasks region | Planned |
+| `GCP_TASKS_QUEUE` | Planned Cloud Tasks queue | Planned |
+
+No current variable is browser-safe. Do not prefix secrets, database URLs, GCP
+values, or storage settings with `NEXT_PUBLIC_`.
+
+## Upload Contracts
+
+### GSTR-2B Reference Import
+
+Endpoint: `POST /api/reference-imports`
+
+Supported request types:
+
+- Multipart upload with `file` and optional `financialYear` / `returnPeriod`.
+- JSON metadata creation with `gstin`, `financialYear`, `returnPeriod`,
+  `originalFilename`, and optional `storageObjectKey`.
+
+Multipart file rules:
+
+- Extension: `.json`
+- MIME type: `application/json`, `application/x-json`, or `text/json`
+- Maximum size: 10 MB
+- Must contain a GSTR-2B-like object with B2B invoice records under
+  `data.docdata.b2b`
+- Uploaded GSTIN must match the authenticated business GSTIN
+- Return period can be read from `rtnprd`, `returnPeriod`, or `return_period`
+- Financial year is derived from `MMYYYY` return periods when possible
+
+### Purchase Register Batch
+
+Endpoint: `POST /api/reconciliation-batches`
+
+Supported request types:
+
+- Multipart upload with `file` and `referenceImportId`.
+- JSON metadata creation with `referenceImportId`, `originalFilename`, and
+  optional `storageObjectKey`.
+
+Multipart file rules:
+
+- Extension: `.csv`
+- MIME type: `text/csv`, `application/csv`, or `application/vnd.ms-excel`
+- Maximum size: 10 MB
+- Maximum invoice rows: 10,000
+- Header row is required
+- Duplicate headers are rejected
+- Required columns:
+
+```text
+invoice_number
+supplier_gstin
+invoice_date
+taxable_value
+igst_amount
+cgst_amount
+sgst_amount
+cess_amount
+total_invoice_value
+```
+
+## API Routes
+
+All business data API routes require an authenticated session.
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/reference-imports` | List recent reference imports |
+| `POST` | `/api/reference-imports` | Create a reference import from JSON metadata or multipart upload |
+| `GET` | `/api/reference-imports/[referenceImportId]` | Read one reference import |
+| `GET` | `/api/reconciliation-batches` | List recent reconciliation batches |
+| `POST` | `/api/reconciliation-batches` | Create a batch from JSON metadata or multipart CSV upload |
+| `GET` | `/api/reconciliation-batches/[batchId]` | Read one reconciliation batch |
+| `GET` | `/api/reconciliation-batches/[batchId]/status` | Read batch counters and status |
+| `GET` | `/api/reconciliation-batches/[batchId]/results` | Read paginated row-level results |
+| `POST` | `/api/auth/signup` | Create a user and first business |
+
+API success responses use:
+
+```json
+{
+  "success": true,
+  "data": {}
+}
+```
+
+API errors use:
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "The request contains invalid fields.",
+    "details": {}
+  }
+}
+```
+
+Every completed API request includes an `x-request-id` response header and is
+logged with structured request context.
+
+## Data Model
+
+The current Prisma schema includes:
+
+- `User`: account identity and optional password hash.
+- `Business`: GSTIN-scoped workspace owned by a user.
+- `ReferenceImport`: GSTR-2B import metadata and lifecycle counters.
+- `ReferenceInvoice`: normalized invoice data imported from a reference file.
+- `UploadBatch`: purchase-register upload metadata, counters, and lifecycle.
+- `ReconciliationRow`: row-level parsed data, match result, errors, and
+  mismatch details.
+
+Key enums:
+
+- `ReferenceImportStatus`: `QUEUED`, `PROCESSING`, `READY`, `FAILED`
+- `UploadBatchStatus`: `QUEUED`, `PROCESSING`, `COMPLETED`,
+  `COMPLETED_WITH_ERRORS`, `FAILED`
+- `ReconciliationResult`: `PENDING`, `MATCHED`, `MISMATCHED`, `UNMATCHED`,
+  `ERROR`
+
+See `prisma/schema.prisma` and `docs/database-migrations.md` for schema and
+migration details.
+
+## Application Pages
+
+| Route | Purpose |
+| --- | --- |
+| `/login` | Sign in or create an account |
+| `/` | Dashboard with upload control, summary cards, recent batches, and recent imports |
+| `/reconciliations` | Reconciliation batch history |
+| `/reconciliations/[batchId]` | Batch counters, status controls, and linked reference import |
+| `/reference-imports` | Reference import setup form and import history |
+| `/reference-imports/[referenceImportId]` | Reference import counters, timeline, and linked batches |
+| `/help/status` | Status/help entry point |
+
+## Repository Structure
+
+```text
+.
+|-- docs/
+|   |-- PRD.md
+|   `-- database-migrations.md
+|-- prisma/
+|   |-- migrations/
+|   |-- schema.prisma
+|   `-- seed.ts
+|-- public/
+|-- src/
+|   |-- app/
+|   |   |-- (app)/
+|   |   |-- (auth)/
+|   |   `-- api/
+|   |-- components/
+|   |-- generated/
+|   |-- lib/
+|   `-- types/
+|-- .env.example
+|-- package.json
+`-- README.md
+```
+
+## Development Notes
+
+- Keep real `.env` files, service-account JSON, private keys, database
+  passwords, and production secrets out of Git.
+- Use committed Prisma migrations for schema evolution. Do not replace the
+  normal workflow with `prisma db push`.
+- Use `npm run lint` and `npm run build` before opening a pull request when
+  possible.
+- API routes should continue using the shared response helpers and request
+  logging utilities in `src/lib`.
+- Upload handling currently validates content and persists metadata. Durable
+  processing, Cloud Storage object writes, Cloud Tasks dispatch, and full CSV
+  row reconciliation workers are future work.
 
 ## Git Workflow
 
-This project follows a branch-based GitHub workflow.
-
-### Never work directly on `main`
-
-Start every task from an updated `main` branch.
+Start from an updated `main` branch:
 
 ```bash
 git checkout main
 git pull origin main
 ```
 
-Create a separate branch for the task:
+Create a feature branch:
 
 ```bash
 git checkout -b feat/<feature-name>
 ```
 
-Examples:
-
-```text
-feat/csv-upload
-feat/background-processing
-feat/progress-tracking
-feat/invoice-results-table
-fix/row-processing-error
-docs/update-readme
-```
-
-### Commit Convention
-
-We follow Conventional Commits.
-
-Examples:
+Use Conventional Commits:
 
 ```bash
-git commit -m "feat: add CSV invoice upload"
+git commit -m "feat: add reconciliation batch status endpoint"
+git commit -m "fix: handle upload validation errors"
+git commit -m "docs: update readme"
 ```
 
-```bash
-git commit -m "feat: add invoice processing progress"
-```
-
-```bash
-git commit -m "fix: continue processing after row failure"
-```
-
-```bash
-git commit -m "docs: update project setup instructions"
-```
-
----
-
-## Pull Request Workflow
-
-Every change should follow:
-
-```text
-GitHub Issue
-    ↓
-Individual Branch
-    ↓
-Development
-    ↓
-Commit
-    ↓
-Push
-    ↓
-Pull Request
-    ↓
-Teammate Review
-    ↓
-Approval
-    ↓
-Merge into main
-```
-
-Each Pull Request should contain:
-
-### What
-
-What was implemented or changed.
-
-### Why
-
-Why the change was required.
-
-### Linked Issue
-
-```text
-Closes #<issue-number>
-```
-
-### How to Test
-
-Clear steps for reviewing and testing the implementation.
-
----
+Pull requests should include what changed, why it changed, the linked issue,
+and clear testing steps.
 
 ## Team
 
-**Team:** Team 07
-**Organization:** KalviumCommunity
+Team 07, KalviumCommunity
 
-| Member                           | Responsibility        |
-| -------------------------------- | --------------------- |
-| Garvit Singh (`@garvitsingh171`) | Backend Developer     |
-| Edha Singh (`@edhasingh125`)     | Frontend Developer    |
-
-> Responsibilities will evolve as issues are assigned during development.
-
----
-
-## Current Milestone
-
-The initial milestone is to build a small end-to-end workflow capable of processing a sample CSV containing a mixture of:
-
-```text
-MATCH
-MISMATCH
-FAILED
-```
-
-The system should successfully process every row independently and correctly report the final batch progress.
-
----
-
-## Project Status
-
-🚧 **Development in Progress**
-
-The README will continue to evolve along with the implementation, decisions, setup instructions, API documentation, and testing strategy.
+| Member | Responsibility |
+| --- | --- |
+| Garvit Singh (`@garvitsingh171`) | Backend Developer |
+| Edha Singh (`@edhasingh125`) | Frontend Developer |
