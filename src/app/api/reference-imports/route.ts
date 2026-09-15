@@ -27,9 +27,9 @@ import {
   JSON_UPLOAD_EXTENSIONS,
   JSON_UPLOAD_MIME_TYPES,
   parseMultipartFormData,
+  parseGstr2bJson,
   readValidatedTextFile,
   type UploadValidationError,
-  validateGstr2bJson,
 } from "@/lib/upload-validation";
 import { revalidatePath } from "next/cache";
 
@@ -277,7 +277,7 @@ async function createReferenceImportFromUpload(
     );
   }
 
-  const gstr2bValidationResult = validateGstr2bJson(fileResultData.data.text);
+  const gstr2bValidationResult = parseGstr2bJson(fileResultData.data.text);
 
   if (!gstr2bValidationResult.success) {
     return completeApiRequest(
@@ -423,16 +423,64 @@ async function createReferenceImportFromUpload(
       );
     }
 
-    const referenceImport = await prisma.referenceImport.create({
-      data: {
-        businessId: business.id,
-        gstin: business.gstin,
-        financialYear,
-        returnPeriod,
-        originalFilename: fileResultData.data.originalFilename,
-        totalDocuments: gstr2bValidationResult.data.totalDocuments,
-      },
-      select: referenceImportSelect,
+    const now = new Date();
+    const referenceImport = await prisma.$transaction(async (transaction) => {
+      await transaction.referenceImport.updateMany({
+        where: {
+          businessId: business.id,
+          gstin: business.gstin,
+          financialYear,
+          returnPeriod,
+          isActive: true,
+        },
+        data: {
+          isActive: false,
+        },
+      });
+
+      const createdImport = await transaction.referenceImport.create({
+        data: {
+          businessId: business.id,
+          gstin: business.gstin,
+          financialYear,
+          returnPeriod,
+          originalFilename: fileResultData.data.originalFilename,
+          status: "READY",
+          totalDocuments: gstr2bValidationResult.data.totalDocuments,
+          importedDocuments: gstr2bValidationResult.data.invoices.length,
+          skippedDocuments: 0,
+          failedDocuments: 0,
+          isActive: true,
+          startedAt: now,
+          completedAt: now,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      await transaction.referenceInvoice.createMany({
+        data: gstr2bValidationResult.data.invoices.map((invoice) => ({
+          referenceImportId: createdImport.id,
+          supplierGstin: invoice.supplierGstin,
+          invoiceNumber: invoice.invoiceNumber,
+          normalizedInvoiceNumber: invoice.normalizedInvoiceNumber,
+          invoiceDate: invoice.invoiceDate,
+          taxableValue: invoice.taxableValue,
+          igstAmount: invoice.igstAmount,
+          cgstAmount: invoice.cgstAmount,
+          sgstAmount: invoice.sgstAmount,
+          cessAmount: invoice.cessAmount,
+          totalInvoiceValue: invoice.totalInvoiceValue,
+        })),
+      });
+
+      return transaction.referenceImport.findUniqueOrThrow({
+        where: {
+          id: createdImport.id,
+        },
+        select: referenceImportSelect,
+      });
     });
 
     revalidatePath("/");
@@ -444,6 +492,7 @@ async function createReferenceImportFromUpload(
         importId: referenceImport.id,
         importType: "gstr2b",
         documentCount: gstr2bValidationResult.data.totalDocuments,
+        importedDocuments: gstr2bValidationResult.data.invoices.length,
       },
       "Reference import upload completed",
     );

@@ -5,7 +5,10 @@ import { getPrismaClient } from "@/lib/prisma";
 import PageContainer from "@/components/layout/PageContainer";
 import Card from "@/components/ui/Card";
 import { isUuid } from "@/lib/ids";
-import type { UploadBatchStatus } from "@/generated/prisma/client";
+import type {
+  ReconciliationResult,
+  UploadBatchStatus,
+} from "@/generated/prisma/client";
 import BatchControls from "@/components/batch/BatchControls";
 
 type ReconciliationBatchPageProps = {
@@ -20,6 +23,14 @@ const statusStyles: Record<UploadBatchStatus, string> = {
   COMPLETED: "bg-success-surface text-success-foreground",
   COMPLETED_WITH_ERRORS: "bg-warning-surface text-warning-foreground",
   FAILED: "bg-error-surface text-error-foreground",
+};
+
+const resultStyles: Record<ReconciliationResult, string> = {
+  PENDING: "bg-surface-muted text-slate-700",
+  MATCHED: "bg-success-surface text-success-foreground",
+  MISMATCHED: "bg-warning-surface text-warning-foreground",
+  UNMATCHED: "bg-warning-surface text-warning-foreground",
+  ERROR: "bg-error-surface text-error-foreground",
 };
 
 function formatDate(value: Date | null) {
@@ -100,6 +111,30 @@ export default async function ReconciliationBatchPage({
   if (!batch) {
     notFound();
   }
+
+  const resultRows = await prisma.reconciliationRow.findMany({
+    where: {
+      batchId: batch.id,
+    },
+    orderBy: {
+      rowNumber: "asc",
+    },
+    select: {
+      id: true,
+      rowNumber: true,
+      invoiceNumber: true,
+      supplierGstin: true,
+      reconciliationResult: true,
+      errorMessage: true,
+      mismatchCodes: true,
+      matchedReference: {
+        select: {
+          invoiceNumber: true,
+        },
+      },
+    },
+    take: 50,
+  });
 
   const summaryItems = [
     ["Total rows", batch.totalRows],
@@ -209,6 +244,66 @@ export default async function ReconciliationBatchPage({
           </p>
         </Card>
       ) : null}
+
+      <Card className="mt-6 overflow-hidden">
+        <div className="border-b border-border p-5">
+          <h2 className="font-semibold text-foreground">
+            Reconciliation Results
+          </h2>
+        </div>
+
+        {resultRows.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[840px] text-left text-sm">
+              <thead className="bg-surface-muted text-xs uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-5 py-3 font-medium">Row</th>
+                  <th className="px-5 py-3 font-medium">Invoice</th>
+                  <th className="px-5 py-3 font-medium">Supplier GSTIN</th>
+                  <th className="px-5 py-3 font-medium">Reference</th>
+                  <th className="px-5 py-3 font-medium">Result</th>
+                  <th className="px-5 py-3 font-medium">Reason</th>
+                </tr>
+              </thead>
+
+              <tbody className="divide-y divide-border">
+                {resultRows.map((row) => (
+                  <tr key={row.id}>
+                    <td className="px-5 py-4 text-slate-600">
+                      {row.rowNumber}
+                    </td>
+                    <td className="px-5 py-4 font-medium text-foreground">
+                      {row.invoiceNumber ?? "Not available"}
+                    </td>
+                    <td className="px-5 py-4 font-mono text-xs text-slate-600">
+                      {row.supplierGstin ?? "Not available"}
+                    </td>
+                    <td className="px-5 py-4 text-slate-600">
+                      {row.matchedReference?.invoiceNumber ?? "Not found"}
+                    </td>
+                    <td className="px-5 py-4">
+                      <span
+                        className={`inline-flex w-fit items-center rounded-md px-2.5 py-1 text-xs font-medium ${resultStyles[row.reconciliationResult]}`}
+                      >
+                        {formatStatus(row.reconciliationResult)}
+                      </span>
+                    </td>
+                    <td className="max-w-[280px] px-5 py-4 text-slate-600">
+                      {row.errorMessage ??
+                        (row.mismatchCodes.join(", ") ||
+                          "All compared fields matched")}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="p-5 text-sm text-slate-500">
+            No reconciliation rows have been persisted for this batch yet.
+          </div>
+        )}
+      </Card>
     </PageContainer>
   );
 }
