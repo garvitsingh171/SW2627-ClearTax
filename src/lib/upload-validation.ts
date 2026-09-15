@@ -20,6 +20,7 @@ export const JSON_UPLOAD_MIME_TYPES = new Set([
 export const CSV_UPLOAD_MIME_TYPES = new Set([
   "application/csv",
   "application/vnd.ms-excel",
+  "text/plain",
   "text/csv",
 ]);
 
@@ -70,9 +71,34 @@ export type Gstr2bValidationSummary = {
   totalDocuments: number;
 };
 
+export type ParsedReferenceInvoice = {
+  supplierGstin: string;
+  invoiceNumber: string;
+  normalizedInvoiceNumber: string;
+  invoiceDate: Date;
+  taxableValue: string;
+  igstAmount: string;
+  cgstAmount: string;
+  sgstAmount: string;
+  cessAmount: string;
+  totalInvoiceValue: string;
+};
+
+export type ParsedGstr2bImport = Gstr2bValidationSummary & {
+  invoices: ParsedReferenceInvoice[];
+};
+
 export type PurchaseRegisterCsvSummary = {
   headers: string[];
   totalRows: number;
+};
+
+export type ParsedPurchaseRegisterCsv = PurchaseRegisterCsvSummary & {
+  rows: {
+    rowNumber: number;
+    values: Record<string, string>;
+    cellCount: number;
+  }[];
 };
 
 export function isMultipartRequest(request: Request) {
@@ -158,6 +184,27 @@ export async function readValidatedTextFile(
 export function validateGstr2bJson(
   text: string,
 ): ValidationResult<Gstr2bValidationSummary> {
+  const parseResult = parseGstr2bJson(text);
+
+  if (!parseResult.success) {
+    return parseResult;
+  }
+
+  const { gstin, returnPeriod, totalDocuments } = parseResult.data;
+
+  return {
+    success: true,
+    data: {
+      gstin,
+      returnPeriod,
+      totalDocuments,
+    },
+  };
+}
+
+export function parseGstr2bJson(
+  text: string,
+): ValidationResult<ParsedGstr2bImport> {
   let parsed: unknown;
 
   try {
@@ -195,7 +242,8 @@ export function validateGstr2bJson(
     "return_period",
   ]);
 
-  let totalDocuments = 0;
+  const invoices: ParsedReferenceInvoice[] = [];
+  const seenInvoiceKeys = new Set<string>();
 
   for (const [supplierIndex, supplier] of docData.b2b.entries()) {
     if (!isRecord(supplier)) {
@@ -204,9 +252,19 @@ export function validateGstr2bJson(
       );
     }
 
-    if (!getStringValue(supplier, ["ctin", "supplierGstin"])) {
+    const supplierGstin = getStringValue(supplier, ["ctin", "supplierGstin"]);
+
+    if (!supplierGstin) {
       return invalidGstr2bStructure(
         `GSTR-2B supplier record ${supplierIndex + 1} is missing supplier GSTIN.`,
+      );
+    }
+
+    const normalizedSupplierGstin = supplierGstin.toUpperCase();
+
+    if (!isValidGstin(normalizedSupplierGstin)) {
+      return invalidGstr2bStructure(
+        `GSTR-2B supplier record ${supplierIndex + 1} has invalid supplier GSTIN.`,
       );
     }
 
@@ -229,15 +287,27 @@ export function validateGstr2bJson(
         supplierIndex + 1
       }`;
 
-      if (!getStringValue(invoice, ["inum", "invoiceNumber"])) {
+      const invoiceNumber = getStringValue(invoice, ["inum", "invoiceNumber"]);
+
+      if (!invoiceNumber) {
         return invalidGstr2bStructure(`${invoiceLabel} is missing invoice number.`);
       }
 
-      if (!getStringValue(invoice, ["dt", "invoiceDate"])) {
+      const invoiceDateText = getStringValue(invoice, ["dt", "invoiceDate"]);
+      const invoiceDate = invoiceDateText
+        ? parseInvoiceDate(invoiceDateText)
+        : null;
+
+      if (!invoiceDate) {
         return invalidGstr2bStructure(`${invoiceLabel} is missing invoice date.`);
       }
 
-      if (!hasNumericValue(invoice, ["val", "totalInvoiceValue"])) {
+      const totalInvoiceValue = getNonNegativeMoneyValue(invoice, [
+        "val",
+        "totalInvoiceValue",
+      ]);
+
+      if (!totalInvoiceValue) {
         return invalidGstr2bStructure(
           `${invoiceLabel} is missing total invoice value.`,
         );
@@ -247,6 +317,12 @@ export function validateGstr2bJson(
         return invalidGstr2bStructure(`${invoiceLabel} is missing item values.`);
       }
 
+      let taxableValue = "0.00";
+      let igstAmount = "0.00";
+      let cgstAmount = "0.00";
+      let sgstAmount = "0.00";
+      let cessAmount = "0.00";
+
       for (const [itemIndex, item] of invoice.items.entries()) {
         if (!isRecord(item)) {
           return invalidGstr2bStructure(
@@ -255,35 +331,95 @@ export function validateGstr2bJson(
         }
 
         const itemLabel = `${invoiceLabel} item ${itemIndex + 1}`;
+        const itemValues = isRecord(item.itm_det) ? item.itm_det : item;
+        const itemTaxableValue = getNonNegativeMoneyValue(itemValues, [
+          "txval",
+          "taxableValue",
+        ]);
 
-        if (!hasNumericValue(item, ["txval", "taxableValue"])) {
+        if (!itemTaxableValue) {
           return invalidGstr2bStructure(
             `${itemLabel} is missing taxable value.`,
           );
         }
 
-        if (!hasNumericValue(item, ["iamt", "igst", "igstAmount"])) {
+        const itemIgstAmount = getNonNegativeMoneyValue(itemValues, [
+          "iamt",
+          "igst",
+          "igstAmount",
+        ]);
+
+        if (!itemIgstAmount) {
           return invalidGstr2bStructure(`${itemLabel} is missing IGST amount.`);
         }
 
-        if (!hasNumericValue(item, ["camt", "cgst", "cgstAmount"])) {
+        const itemCgstAmount = getNonNegativeMoneyValue(itemValues, [
+          "camt",
+          "cgst",
+          "cgstAmount",
+        ]);
+
+        if (!itemCgstAmount) {
           return invalidGstr2bStructure(`${itemLabel} is missing CGST amount.`);
         }
 
-        if (!hasNumericValue(item, ["samt", "sgst", "sgstAmount"])) {
+        const itemSgstAmount = getNonNegativeMoneyValue(itemValues, [
+          "samt",
+          "sgst",
+          "sgstAmount",
+        ]);
+
+        if (!itemSgstAmount) {
           return invalidGstr2bStructure(`${itemLabel} is missing SGST amount.`);
         }
 
-        if (!hasNumericValue(item, ["cess", "csamt", "cessAmount"])) {
+        const itemCessAmount = getNonNegativeMoneyValue(itemValues, [
+          "cess",
+          "csamt",
+          "cessAmount",
+        ]);
+
+        if (!itemCessAmount) {
           return invalidGstr2bStructure(`${itemLabel} is missing cess amount.`);
         }
+
+        taxableValue = addMoneyStrings(taxableValue, itemTaxableValue);
+        igstAmount = addMoneyStrings(igstAmount, itemIgstAmount);
+        cgstAmount = addMoneyStrings(cgstAmount, itemCgstAmount);
+        sgstAmount = addMoneyStrings(sgstAmount, itemSgstAmount);
+        cessAmount = addMoneyStrings(cessAmount, itemCessAmount);
       }
 
-      totalDocuments += 1;
+      const normalizedInvoiceNumber = normalizeInvoiceNumber(invoiceNumber);
+      const invoiceKey = [
+        normalizedSupplierGstin,
+        normalizedInvoiceNumber,
+        formatDateKey(invoiceDate),
+      ].join("|");
+
+      if (seenInvoiceKeys.has(invoiceKey)) {
+        return invalidGstr2bStructure(
+          `${invoiceLabel} duplicates another GSTR-2B invoice in this file.`,
+        );
+      }
+
+      seenInvoiceKeys.add(invoiceKey);
+      invoices.push({
+        supplierGstin: normalizedSupplierGstin,
+        invoiceNumber,
+        normalizedInvoiceNumber,
+        invoiceDate,
+        taxableValue,
+        igstAmount,
+        cgstAmount,
+        sgstAmount,
+        cessAmount,
+        totalInvoiceValue,
+      });
     }
   }
 
-  if (totalDocuments === 0) {
+  if (invoices.length === 0) {
     return invalidGstr2bStructure(
       "GSTR-2B JSON does not contain supported B2B invoices.",
     );
@@ -294,7 +430,8 @@ export function validateGstr2bJson(
     data: {
       gstin,
       returnPeriod,
-      totalDocuments,
+      totalDocuments: invoices.length,
+      invoices,
     },
   };
 }
@@ -302,17 +439,40 @@ export function validateGstr2bJson(
 export function validatePurchaseRegisterCsv(
   text: string,
 ): ValidationResult<PurchaseRegisterCsvSummary> {
+  const csvParseResult = parsePurchaseRegisterCsv(text);
+
+  if (!csvParseResult.success) {
+    return csvParseResult;
+  }
+
+  const { headers, totalRows } = csvParseResult.data;
+
+  return {
+    success: true,
+    data: {
+      headers,
+      totalRows,
+    },
+  };
+}
+
+export function parsePurchaseRegisterCsv(
+  text: string,
+): ValidationResult<ParsedPurchaseRegisterCsv> {
   const csvParseResult = parseCsv(text);
 
   if (!csvParseResult.success) {
     return csvParseResult;
   }
 
-  const rows = csvParseResult.data.filter((row) =>
-    row.some((cell) => cell.trim().length > 0),
-  );
+  const rowsWithNumbers = csvParseResult.data
+    .map((row, index) => ({
+      rowNumber: index + 1,
+      cells: row,
+    }))
+    .filter(({ cells }) => cells.some((cell) => cell.trim().length > 0));
 
-  if (rows.length === 0) {
+  if (rowsWithNumbers.length === 0) {
     return uploadError(
       400,
       API_ERROR_CODES.INVALID_FILE_HEADERS,
@@ -320,7 +480,10 @@ export function validatePurchaseRegisterCsv(
     );
   }
 
-  const headers = rows[0].map((header) => header.trim());
+  const headerRow = rowsWithNumbers[0];
+  const headers = headerRow.cells.map((header, index) =>
+    normalizeCsvHeader(header, index),
+  );
   const duplicateHeaders = findDuplicateHeaders(headers);
 
   if (duplicateHeaders.length > 0) {
@@ -349,7 +512,8 @@ export function validatePurchaseRegisterCsv(
     );
   }
 
-  const totalRows = rows.length - 1;
+  const dataRows = rowsWithNumbers.slice(1);
+  const totalRows = dataRows.length;
 
   if (totalRows === 0) {
     return uploadError(
@@ -375,8 +539,89 @@ export function validatePurchaseRegisterCsv(
     data: {
       headers,
       totalRows,
+      rows: dataRows.map(({ rowNumber, cells }) => ({
+        rowNumber,
+        cellCount: cells.length,
+        values: headers.reduce<Record<string, string>>((values, header, index) => {
+          if (header) {
+            values[header] = cells[index]?.trim() ?? "";
+          }
+
+          return values;
+        }, {}),
+      })),
     },
   };
+}
+
+export function normalizeInvoiceNumber(invoiceNumber: string) {
+  return invoiceNumber.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+export function parseInvoiceDate(value: string) {
+  const trimmedValue = value.trim();
+  const isoMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmedValue);
+  const indianMatch = /^(\d{2})[-/](\d{2})[-/](\d{4})$/.exec(trimmedValue);
+
+  const parts = isoMatch
+    ? {
+        year: Number(isoMatch[1]),
+        month: Number(isoMatch[2]),
+        day: Number(isoMatch[3]),
+      }
+    : indianMatch
+      ? {
+          year: Number(indianMatch[3]),
+          month: Number(indianMatch[2]),
+          day: Number(indianMatch[1]),
+        }
+      : null;
+
+  if (!parts || parts.month < 1 || parts.month > 12 || parts.day < 1) {
+    return null;
+  }
+
+  const date = new Date(
+    Date.UTC(parts.year, parts.month - 1, parts.day, 0, 0, 0, 0),
+  );
+
+  if (
+    date.getUTCFullYear() !== parts.year ||
+    date.getUTCMonth() !== parts.month - 1 ||
+    date.getUTCDate() !== parts.day
+  ) {
+    return null;
+  }
+
+  return date;
+}
+
+export function normalizeMoneyValue(value: string) {
+  const trimmedValue = value.trim();
+  const match = /^(-?)(\d+)(?:\.(\d{1,2}))?$/.exec(trimmedValue);
+
+  if (!match) {
+    return null;
+  }
+
+  const [, sign, integerPart, decimalPart = ""] = match;
+  const normalizedInteger = integerPart.replace(/^0+(?=\d)/, "") || "0";
+  const normalizedDecimal = decimalPart.padEnd(2, "0");
+  const normalized = `${sign}${normalizedInteger}.${normalizedDecimal}`;
+
+  return normalized === "-0.00" ? "0.00" : normalized;
+}
+
+export function isNegativeMoneyValue(value: string) {
+  return value.startsWith("-") && value !== "-0.00";
+}
+
+export function formatDateKey(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+export function isValidGstin(value: string) {
+  return /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(value);
 }
 
 export function deriveFinancialYearFromReturnPeriod(returnPeriod: string) {
@@ -453,7 +698,7 @@ function validateUploadedFileMetadata(
 
   if (!config.acceptedExtensions.includes(extension)) {
     return uploadError(
-      400,
+      415,
       API_ERROR_CODES.INVALID_FILE_TYPE,
       `${config.fileKind} uploads must use ${formatList(
         config.acceptedExtensions,
@@ -468,7 +713,7 @@ function validateUploadedFileMetadata(
 
   if (contentType && !config.acceptedMimeTypes.has(contentType)) {
     return uploadError(
-      400,
+      415,
       API_ERROR_CODES.INVALID_FILE_TYPE,
       `${config.fileKind} upload has an unsupported content type.`,
       {
@@ -559,7 +804,7 @@ function malformedCsv(message: string): ValidationResult<never> {
 }
 
 function invalidGstr2bStructure(message: string): ValidationResult<never> {
-  return uploadError(400, API_ERROR_CODES.INVALID_FILE, message);
+  return uploadError(422, API_ERROR_CODES.INVALID_FILE, message);
 }
 
 function sanitizeOriginalFilename(filename: string) {
@@ -594,6 +839,14 @@ function findDuplicateHeaders(headers: string[]) {
   return Array.from(duplicateHeaders);
 }
 
+function normalizeCsvHeader(header: string, index: number) {
+  const trimmedHeader = header.trim();
+  const withoutBom =
+    index === 0 ? trimmedHeader.replace(/^\uFEFF/, "") : trimmedHeader;
+
+  return withoutBom.toLowerCase();
+}
+
 function getStringValue(record: Record<string, unknown>, keys: string[]) {
   for (const key of keys) {
     const value = record[key];
@@ -606,24 +859,44 @@ function getStringValue(record: Record<string, unknown>, keys: string[]) {
   return null;
 }
 
-function hasNumericValue(record: Record<string, unknown>, keys: string[]) {
+function getNonNegativeMoneyValue(
+  record: Record<string, unknown>,
+  keys: string[],
+) {
   for (const key of keys) {
     const value = record[key];
+    const normalizedValue =
+      typeof value === "number"
+        ? normalizeMoneyValue(String(value))
+        : typeof value === "string"
+          ? normalizeMoneyValue(value)
+          : null;
 
-    if (typeof value === "number" && Number.isFinite(value)) {
-      return true;
-    }
-
-    if (
-      typeof value === "string" &&
-      value.trim().length > 0 &&
-      Number.isFinite(Number(value))
-    ) {
-      return true;
+    if (normalizedValue && !isNegativeMoneyValue(normalizedValue)) {
+      return normalizedValue;
     }
   }
 
-  return false;
+  return null;
+}
+
+function addMoneyStrings(first: string, second: string) {
+  const firstCents = moneyToCents(first);
+  const secondCents = moneyToCents(second);
+  const totalCents = firstCents + secondCents;
+  const sign = totalCents < 0 ? "-" : "";
+  const absoluteCents = Math.abs(totalCents);
+  const whole = Math.floor(absoluteCents / 100);
+  const fraction = String(absoluteCents % 100).padStart(2, "0");
+
+  return `${sign}${whole}.${fraction}`;
+}
+
+function moneyToCents(value: string) {
+  const [wholePart, fractionPart = "00"] = value.replace("-", "").split(".");
+  const sign = value.startsWith("-") ? -1 : 1;
+
+  return sign * (Number(wholePart) * 100 + Number(fractionPart.padEnd(2, "0")));
 }
 
 function isUploadedFile(value: FormDataEntryValue | null): value is File {

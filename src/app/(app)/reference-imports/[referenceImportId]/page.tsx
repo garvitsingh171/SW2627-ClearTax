@@ -52,6 +52,11 @@ export default async function ReferenceImportPage({
   await connection();
 
   const user = await requireCurrentUser();
+
+  if (!isUuid(user.businessId)) {
+    notFound();
+  }
+
   const prisma = getPrismaClient();
 
   const referenceImport = await prisma.referenceImport.findFirst({
@@ -75,30 +80,6 @@ export default async function ReferenceImportPage({
       updatedAt: true,
       startedAt: true,
       completedAt: true,
-      business: {
-        select: {
-          legalName: true,
-          gstin: true,
-        },
-      },
-      uploadBatches: {
-        orderBy: {
-          createdAt: "desc",
-        },
-        select: {
-          id: true,
-          originalFilename: true,
-          status: true,
-          createdAt: true,
-        },
-        take: 5,
-      },
-      _count: {
-        select: {
-          invoices: true,
-          uploadBatches: true,
-        },
-      },
     },
   });
 
@@ -106,13 +87,32 @@ export default async function ReferenceImportPage({
     notFound();
   }
 
+  const business = await prisma.business.findUnique({
+    where: {
+      id: user.businessId,
+    },
+    select: {
+      legalName: true,
+      gstin: true,
+    },
+  });
+
+  if (!business) {
+    notFound();
+  }
+
+  const relatedData = await getReferenceImportRelatedData(
+    prisma,
+    referenceImport.id,
+  );
+
   const summaryItems = [
     ["Total documents", referenceImport.totalDocuments],
     ["Imported", referenceImport.importedDocuments],
     ["Skipped", referenceImport.skippedDocuments],
     ["Failed", referenceImport.failedDocuments],
-    ["Persisted invoices", referenceImport._count.invoices],
-    ["Upload batches", referenceImport._count.uploadBatches],
+    ["Persisted invoices", relatedData.invoiceCount],
+    ["Upload batches", relatedData.uploadBatchCount],
   ];
 
   return (
@@ -160,11 +160,11 @@ export default async function ReferenceImportPage({
           <dl className="mt-4 space-y-3 text-sm">
             <DetailRow
               label="Business"
-              value={referenceImport.business.legalName}
+              value={business.legalName}
             />
             <DetailRow
               label="Business GSTIN"
-              value={referenceImport.business.gstin}
+              value={business.gstin}
             />
             <DetailRow label="Import GSTIN" value={referenceImport.gstin} />
             <DetailRow
@@ -206,7 +206,7 @@ export default async function ReferenceImportPage({
           </h2>
         </div>
 
-        {referenceImport.uploadBatches.length > 0 ? (
+        {relatedData.uploadBatches.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] text-left text-sm">
               <thead className="bg-surface-muted text-xs uppercase tracking-wide text-slate-500">
@@ -219,7 +219,7 @@ export default async function ReferenceImportPage({
               </thead>
 
               <tbody className="divide-y divide-border">
-                {referenceImport.uploadBatches.map((batch) => (
+                {relatedData.uploadBatches.map((batch) => (
                   <tr key={batch.id} className="hover:bg-surface-muted/50">
                     <td className="px-5 py-4">
                       <Link
@@ -245,12 +245,65 @@ export default async function ReferenceImportPage({
           </div>
         ) : (
           <p className="p-5 text-sm text-slate-500">
-            No reconciliation batches have been linked to this import yet.
+            {relatedData.loadError
+              ? "The import loaded, but linked batch summaries could not be loaded."
+              : "No reconciliation batches have been linked to this import yet."}
           </p>
         )}
       </Card>
     </PageContainer>
   );
+}
+
+type PrismaClient = ReturnType<typeof getPrismaClient>;
+
+async function getReferenceImportRelatedData(
+  prisma: PrismaClient,
+  referenceImportId: string,
+) {
+  try {
+    const [uploadBatches, invoiceCount, uploadBatchCount] = await Promise.all([
+      prisma.uploadBatch.findMany({
+        where: {
+          referenceImportId,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+        select: {
+          id: true,
+          originalFilename: true,
+          status: true,
+          createdAt: true,
+        },
+        take: 5,
+      }),
+      prisma.referenceInvoice.count({
+        where: {
+          referenceImportId,
+        },
+      }),
+      prisma.uploadBatch.count({
+        where: {
+          referenceImportId,
+        },
+      }),
+    ]);
+
+    return {
+      uploadBatches,
+      invoiceCount,
+      uploadBatchCount,
+      loadError: false,
+    };
+  } catch {
+    return {
+      uploadBatches: [],
+      invoiceCount: 0,
+      uploadBatchCount: 0,
+      loadError: true,
+    };
+  }
 }
 
 function DetailRow({
