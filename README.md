@@ -6,11 +6,7 @@ batches, and reviewing persisted match, mismatch, and row-error results.
 
 This project is built as part of the Kalvium Simulated Work program.
 
-<<<<<<< HEAD
-> **Current Status:**  Under Development
-=======
 ## Current Status
->>>>>>> 35ba9c35deb5efc73914350b40cdee6bdbaaa2ea
 
 Development is in progress. The app now includes authentication, a protected
 workspace shell, database-backed dashboards, upload validation, reconciliation
