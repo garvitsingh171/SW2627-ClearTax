@@ -14,9 +14,9 @@ metadata APIs, structured logging, centralized API errors, Prisma migrations,
 and idempotent demo seed data.
 
 Durable background processing with Cloud Tasks and Cloud Storage backed file
-handling is still planned. The current upload flow validates files and persists
-reference-import or batch metadata; the seeded workspace demonstrates persisted
-row-level reconciliation results.
+handling is still planned. The current upload flow validates files, persists
+GSTR-2B reference invoices, and performs Purchase Register reconciliation inline
+while storing row-level reconciliation results.
 
 ## What Works Now
 
@@ -26,6 +26,7 @@ row-level reconciliation results.
   detail pages.
 - GSTR-2B JSON upload validation and reference import creation.
 - Purchase Register CSV upload validation and reconciliation batch creation.
+- Row-level Purchase Register reconciliation during upload.
 - Server-rendered summaries from PostgreSQL-backed Prisma models.
 - Batch status and paginated reconciliation-result API endpoints.
 - Row-level result model for matched, mismatched, unmatched, and error outcomes.
@@ -50,6 +51,11 @@ Track batch status and counters
         |
 Review batch details and row-level reconciliation results
 ```
+
+## Engineering Documentation
+
+Detailed architecture, database design, reconciliation flow, engineering decisions,
+showcase material, and viva preparation are available in [`docs/`](./docs/README.md).
 
 ## Tech Stack
 
@@ -332,9 +338,9 @@ migration details.
   possible.
 - API routes should continue using the shared response helpers and request
   logging utilities in `src/lib`.
-- Upload handling currently validates content and persists metadata. Durable
-  processing, Cloud Storage object writes, Cloud Tasks dispatch, and full CSV
-  row reconciliation workers are future work.
+- Upload handling currently validates content, persists reference invoices, and
+  reconciles Purchase Register rows inline. Durable background workers, Cloud
+  Storage object writes, and Cloud Tasks dispatch are future work.
 
 ## Git Workflow
 
