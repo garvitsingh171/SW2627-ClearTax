@@ -5,11 +5,14 @@ import { getPrismaClient } from "@/lib/prisma";
 import PageContainer from "@/components/layout/PageContainer";
 import Card from "@/components/ui/Card";
 import { isUuid } from "@/lib/ids";
-import type {
-  ReconciliationResult,
-  UploadBatchStatus,
-} from "@/generated/prisma/client";
+import type { UploadBatchStatus } from "@/generated/prisma/client";
 import BatchControls from "@/components/batch/BatchControls";
+import ReconciliationResultsTable from "@/components/reconciliation/ReconciliationResultsTable";
+import type {
+  JsonValue,
+  ReconciliationBatchDetails,
+  ReconciliationRowDetails,
+} from "@/components/reconciliation/types";
 
 type ReconciliationBatchPageProps = {
   params: Promise<{
@@ -23,14 +26,6 @@ const statusStyles: Record<UploadBatchStatus, string> = {
   COMPLETED: "bg-success-surface text-success-foreground",
   COMPLETED_WITH_ERRORS: "bg-warning-surface text-warning-foreground",
   FAILED: "bg-error-surface text-error-foreground",
-};
-
-const resultStyles: Record<ReconciliationResult, string> = {
-  PENDING: "bg-surface-muted text-slate-700",
-  MATCHED: "bg-success-surface text-success-foreground",
-  MISMATCHED: "bg-warning-surface text-warning-foreground",
-  UNMATCHED: "bg-warning-surface text-warning-foreground",
-  ERROR: "bg-error-surface text-error-foreground",
 };
 
 function formatDate(value: Date | null) {
@@ -121,20 +116,107 @@ export default async function ReconciliationBatchPage({
     },
     select: {
       id: true,
+      batchId: true,
       rowNumber: true,
+      rawData: true,
       invoiceNumber: true,
+      normalizedInvoiceNumber: true,
       supplierGstin: true,
+      invoiceDate: true,
+      taxableValue: true,
+      igstAmount: true,
+      cgstAmount: true,
+      sgstAmount: true,
+      cessAmount: true,
+      totalInvoiceValue: true,
+      processingStatus: true,
       reconciliationResult: true,
+      errorCode: true,
       errorMessage: true,
+      matchedReferenceId: true,
       mismatchCodes: true,
+      mismatchDetails: true,
+      createdAt: true,
+      updatedAt: true,
+      processedAt: true,
       matchedReference: {
         select: {
+          id: true,
+          supplierGstin: true,
           invoiceNumber: true,
+          normalizedInvoiceNumber: true,
+          invoiceDate: true,
+          taxableValue: true,
+          igstAmount: true,
+          cgstAmount: true,
+          sgstAmount: true,
+          cessAmount: true,
+          totalInvoiceValue: true,
         },
       },
     },
     take: 50,
   });
+
+  const serializedBatch: ReconciliationBatchDetails = {
+    id: batch.id,
+    originalFilename: batch.originalFilename,
+    status: batch.status,
+    createdAt: batch.createdAt.toISOString(),
+    updatedAt: batch.updatedAt.toISOString(),
+    startedAt: dateToIsoString(batch.startedAt),
+    completedAt: dateToIsoString(batch.completedAt),
+    referenceImport: {
+      id: batch.referenceImport.id,
+      financialYear: batch.referenceImport.financialYear,
+      returnPeriod: batch.referenceImport.returnPeriod,
+      status: batch.referenceImport.status,
+    },
+  };
+
+  const serializedRows: ReconciliationRowDetails[] = resultRows.map((row) => ({
+    id: row.id,
+    batchId: row.batchId,
+    rowNumber: row.rowNumber,
+    rawData: toJsonValue(row.rawData),
+    invoiceNumber: row.invoiceNumber,
+    normalizedInvoiceNumber: row.normalizedInvoiceNumber,
+    supplierGstin: row.supplierGstin,
+    invoiceDate: dateToIsoString(row.invoiceDate),
+    taxableValue: decimalToString(row.taxableValue),
+    igstAmount: decimalToString(row.igstAmount),
+    cgstAmount: decimalToString(row.cgstAmount),
+    sgstAmount: decimalToString(row.sgstAmount),
+    cessAmount: decimalToString(row.cessAmount),
+    totalInvoiceValue: decimalToString(row.totalInvoiceValue),
+    processingStatus: row.processingStatus,
+    reconciliationResult: row.reconciliationResult,
+    errorCode: row.errorCode,
+    errorMessage: row.errorMessage,
+    matchedReferenceId: row.matchedReferenceId,
+    mismatchCodes: row.mismatchCodes,
+    mismatchDetails: toJsonValue(row.mismatchDetails),
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+    processedAt: dateToIsoString(row.processedAt),
+    matchedReference: row.matchedReference
+      ? {
+          id: row.matchedReference.id,
+          supplierGstin: row.matchedReference.supplierGstin,
+          invoiceNumber: row.matchedReference.invoiceNumber,
+          normalizedInvoiceNumber:
+            row.matchedReference.normalizedInvoiceNumber,
+          invoiceDate: row.matchedReference.invoiceDate.toISOString(),
+          taxableValue: decimalToString(row.matchedReference.taxableValue) ?? "",
+          igstAmount: decimalToString(row.matchedReference.igstAmount) ?? "",
+          cgstAmount: decimalToString(row.matchedReference.cgstAmount) ?? "",
+          sgstAmount: decimalToString(row.matchedReference.sgstAmount) ?? "",
+          cessAmount: decimalToString(row.matchedReference.cessAmount) ?? "",
+          totalInvoiceValue:
+            decimalToString(row.matchedReference.totalInvoiceValue) ?? "",
+        }
+      : null,
+  }));
 
   const summaryItems = [
     ["Total rows", batch.totalRows],
@@ -252,57 +334,10 @@ export default async function ReconciliationBatchPage({
           </h2>
         </div>
 
-        {resultRows.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[840px] text-left text-sm">
-              <thead className="bg-surface-muted text-xs uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th className="px-5 py-3 font-medium">Row</th>
-                  <th className="px-5 py-3 font-medium">Invoice</th>
-                  <th className="px-5 py-3 font-medium">Supplier GSTIN</th>
-                  <th className="px-5 py-3 font-medium">Reference</th>
-                  <th className="px-5 py-3 font-medium">Result</th>
-                  <th className="px-5 py-3 font-medium">Reason</th>
-                </tr>
-              </thead>
-
-              <tbody className="divide-y divide-border">
-                {resultRows.map((row) => (
-                  <tr key={row.id}>
-                    <td className="px-5 py-4 text-slate-600">
-                      {row.rowNumber}
-                    </td>
-                    <td className="px-5 py-4 font-medium text-foreground">
-                      {row.invoiceNumber ?? "Not available"}
-                    </td>
-                    <td className="px-5 py-4 font-mono text-xs text-slate-600">
-                      {row.supplierGstin ?? "Not available"}
-                    </td>
-                    <td className="px-5 py-4 text-slate-600">
-                      {row.matchedReference?.invoiceNumber ?? "Not found"}
-                    </td>
-                    <td className="px-5 py-4">
-                      <span
-                        className={`inline-flex w-fit items-center rounded-md px-2.5 py-1 text-xs font-medium ${resultStyles[row.reconciliationResult]}`}
-                      >
-                        {formatStatus(row.reconciliationResult)}
-                      </span>
-                    </td>
-                    <td className="max-w-[280px] px-5 py-4 text-slate-600">
-                      {row.errorMessage ??
-                        (row.mismatchCodes.join(", ") ||
-                          "All compared fields matched")}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="p-5 text-sm text-slate-500">
-            No reconciliation rows have been persisted for this batch yet.
-          </div>
-        )}
+        <ReconciliationResultsTable
+          rows={serializedRows}
+          batch={serializedBatch}
+        />
       </Card>
     </PageContainer>
   );
@@ -321,4 +356,41 @@ function DetailRow({
       <dd className="break-words font-medium text-foreground">{value}</dd>
     </div>
   );
+}
+
+function dateToIsoString(value: Date | null) {
+  return value ? value.toISOString() : null;
+}
+
+function decimalToString(value: { toString(): string } | null) {
+  return value ? value.toString() : null;
+}
+
+function toJsonValue(value: unknown): JsonValue | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (
+    typeof value === "string" ||
+    typeof value === "boolean" ||
+    (typeof value === "number" && Number.isFinite(value))
+  ) {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => toJsonValue(item));
+  }
+
+  if (typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [
+        key,
+        toJsonValue(item),
+      ]),
+    );
+  }
+
+  return null;
 }
