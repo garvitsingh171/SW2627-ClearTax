@@ -2,9 +2,13 @@
   "name": "sw2627-cleartax",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "postinstall": "prisma generate",
+    "build": "prisma generate && next build",
     "db:seed": "prisma db seed",
     "start": "next start",
     "lint": "eslint"
