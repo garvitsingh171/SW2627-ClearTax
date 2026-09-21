@@ -114,14 +114,14 @@ export default function LoginForm({ nextPath }: LoginFormProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="mt-8 rounded-lg border border-border bg-surface p-5 shadow-card"
+      className="mt-8 rounded-xl border border-border bg-surface p-6 shadow-card"
     >
-      <div className="grid grid-cols-2 rounded-md border border-border bg-surface-muted p-1">
+      <div className="grid grid-cols-2 rounded-lg border border-border bg-surface-muted p-1">
         <button
           type="button"
           onClick={() => changeMode("signin")}
           aria-pressed={!isSignup}
-          className={`h-9 rounded-sm text-sm font-medium transition-colors ${
+          className={`h-9 rounded-md text-sm font-semibold transition-all ${
             !isSignup
               ? "bg-surface text-foreground shadow-card"
               : "text-slate-500 hover:text-foreground"
@@ -133,7 +133,7 @@ export default function LoginForm({ nextPath }: LoginFormProps) {
           type="button"
           onClick={() => changeMode("signup")}
           aria-pressed={isSignup}
-          className={`h-9 rounded-sm text-sm font-medium transition-colors ${
+          className={`h-9 rounded-md text-sm font-semibold transition-all ${
             isSignup
               ? "bg-surface text-foreground shadow-card"
               : "text-slate-500 hover:text-foreground"
@@ -159,7 +159,7 @@ export default function LoginForm({ nextPath }: LoginFormProps) {
               autoComplete="name"
               required
               aria-describedby={fieldErrors.name ? "name-error" : undefined}
-              className="mt-1 h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground"
+              className="mt-2 h-10 w-full rounded-lg border border-border bg-surface px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
             />
             <FieldError id="name-error" errors={fieldErrors.name} />
           </div>
@@ -182,7 +182,7 @@ export default function LoginForm({ nextPath }: LoginFormProps) {
                   ? "businessLegalName-error"
                   : undefined
               }
-              className="mt-1 h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground"
+              className="mt-2 h-10 w-full rounded-lg border border-border bg-surface px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
             />
             <FieldError
               id="businessLegalName-error"
@@ -208,7 +208,7 @@ export default function LoginForm({ nextPath }: LoginFormProps) {
               aria-describedby={
                 fieldErrors.businessGstin ? "businessGstin-error" : undefined
               }
-              className="mt-1 h-10 w-full rounded-md border border-border bg-surface px-3 text-sm uppercase text-foreground"
+              className="mt-2 h-10 w-full rounded-lg border border-border bg-surface px-3 text-sm uppercase text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
             />
             <FieldError
               id="businessGstin-error"
@@ -232,7 +232,7 @@ export default function LoginForm({ nextPath }: LoginFormProps) {
           autoComplete="email"
           required
           aria-describedby={fieldErrors.email ? "email-error" : undefined}
-          className="mt-1 h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground"
+          className="mt-2 h-10 w-full rounded-lg border border-border bg-surface px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
         />
         <FieldError id="email-error" errors={fieldErrors.email} />
       </div>
@@ -253,7 +253,7 @@ export default function LoginForm({ nextPath }: LoginFormProps) {
           aria-describedby={
             fieldErrors.password ? "password-error" : undefined
           }
-          className="mt-1 h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground"
+          className="mt-2 h-10 w-full rounded-lg border border-border bg-surface px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
         />
         <FieldError id="password-error" errors={fieldErrors.password} />
       </div>
@@ -265,7 +265,7 @@ export default function LoginForm({ nextPath }: LoginFormProps) {
       <button
         type="submit"
         disabled={pending}
-        className="mt-5 inline-flex h-10 w-full items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover disabled:pointer-events-none disabled:opacity-50"
+        className="mt-5 inline-flex h-10 w-full items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary-hover active:translate-y-px disabled:pointer-events-none disabled:opacity-50"
       >
         {pending
           ? isSignup

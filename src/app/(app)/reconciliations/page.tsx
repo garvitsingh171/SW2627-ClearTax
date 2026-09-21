@@ -2,17 +2,19 @@ import Link from "next/link";
 import { connection } from "next/server";
 import PageContainer from "@/components/layout/PageContainer";
 import Card from "@/components/ui/Card";
+import PageHeader from "@/components/ui/PageHeader";
+import Icon from "@/components/ui/Icon";
 import { requireCurrentUser } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 import { getPrismaClient, withDatabaseRetry } from "@/lib/prisma";
 import type { UploadBatchStatus } from "@/generated/prisma/client";
 
 const statusStyles: Record<UploadBatchStatus, string> = {
-  QUEUED: "bg-surface-muted text-slate-700",
-  PROCESSING: "bg-info-surface text-info-foreground",
-  COMPLETED: "bg-success-surface text-success-foreground",
-  COMPLETED_WITH_ERRORS: "bg-warning-surface text-warning-foreground",
-  FAILED: "bg-error-surface text-error-foreground",
+  QUEUED: "status-neutral",
+  PROCESSING: "status-info",
+  COMPLETED: "status-success",
+  COMPLETED_WITH_ERRORS: "status-warning",
+  FAILED: "status-error",
 };
 
 function formatDate(value: Date | null) {
@@ -62,24 +64,7 @@ export default async function ReconciliationsPage() {
 
   return (
     <PageContainer>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">
-            Reconciliation History
-          </h1>
-
-          <p className="mt-1 text-sm text-slate-500">
-            Persisted upload batches rendered on the server.
-          </p>
-        </div>
-
-        <Link
-          href="/"
-          className="inline-flex h-9 w-fit items-center justify-center rounded-md border border-border bg-surface px-4 text-sm font-medium text-foreground transition-colors hover:bg-surface-muted"
-        >
-          Back to dashboard
-        </Link>
-      </div>
+      <PageHeader eyebrow="Workspace" title="Reconciliation history" description="Every purchase register upload, its current state, and the results available for review." actions={<Link href="/" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border bg-surface px-4 text-sm font-semibold text-foreground transition-colors hover:bg-surface-muted"><Icon name="arrow-right" size={15} className="rotate-180" /> Dashboard</Link>} />
 
       {batchesError ? (
         <Card className="mt-6 border-warning bg-warning-surface p-5">
@@ -92,11 +77,11 @@ export default async function ReconciliationsPage() {
           </p>
         </Card>
       ) : (
-        <Card className="mt-6 overflow-hidden">
+        <Card className="mt-7 overflow-hidden">
           {batches.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[920px] text-left text-sm">
-                <thead className="bg-surface-muted text-xs uppercase tracking-wide text-slate-500">
+                <thead className="bg-surface-muted/70 text-[11px] uppercase tracking-[.08em] text-slate-500">
                   <tr>
                     <th className="px-5 py-3 font-medium">File</th>
                     <th className="px-5 py-3 font-medium">Business</th>
@@ -146,7 +131,7 @@ export default async function ReconciliationsPage() {
                       </td>
                       <td className="px-5 py-4">
                         <span
-                          className={`inline-flex w-fit items-center rounded-md px-2.5 py-1 text-xs font-medium ${statusStyles[batch.status]}`}
+                          className={`status-badge ${statusStyles[batch.status]}`}
                         >
                           {formatStatus(batch.status)}
                         </span>

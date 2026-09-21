@@ -22,13 +22,13 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantStyles: Record<ButtonVariant, string> = {
   primary:
-    "bg-primary text-primary-foreground hover:bg-primary-hover",
+    "bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover hover:shadow-md active:translate-y-px",
   secondary:
-    "border border-border bg-surface text-foreground hover:bg-surface-muted",
+    "border border-border bg-surface text-foreground shadow-sm hover:border-border-strong hover:bg-surface-muted active:translate-y-px",
   ghost:
-    "bg-transparent text-foreground hover:bg-surface-muted",
+    "bg-transparent text-foreground hover:bg-surface-muted active:translate-y-px",
   danger:
-    "bg-error text-white hover:bg-red-700",
+    "bg-error text-white shadow-sm hover:brightness-95 active:translate-y-px",
 };
 
 const sizeStyles: Record<ButtonSize, string> = {
@@ -52,7 +52,8 @@ export default function Button({
     gap-2
     rounded-md
     font-medium
-    transition-colors
+    transition-all duration-200
+    focus-visible:ring-2 focus-visible:ring-primary/30
     disabled:pointer-events-none
     disabled:opacity-50
     ${variantStyles[variant]}

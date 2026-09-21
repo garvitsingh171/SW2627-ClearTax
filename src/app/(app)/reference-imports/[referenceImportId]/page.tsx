@@ -3,22 +3,18 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import PageContainer from "@/components/layout/PageContainer";
 import Card from "@/components/ui/Card";
+import PageHeader from "@/components/ui/PageHeader";
+import StatCard from "@/components/ui/StatCard";
+import StatusBadge from "@/components/ui/StatusBadge";
+import Icon from "@/components/ui/Icon";
 import { requireCurrentUser } from "@/lib/auth";
 import { isUuid } from "@/lib/ids";
 import { getPrismaClient } from "@/lib/prisma";
-import type { ReferenceImportStatus } from "@/generated/prisma/client";
 
 type ReferenceImportPageProps = {
   params: Promise<{
     referenceImportId: string;
   }>;
-};
-
-const statusStyles: Record<ReferenceImportStatus, string> = {
-  QUEUED: "bg-surface-muted text-slate-700",
-  PROCESSING: "bg-info-surface text-info-foreground",
-  READY: "bg-success-surface text-success-foreground",
-  FAILED: "bg-error-surface text-error-foreground",
 };
 
 function formatDate(value: Date | null) {
@@ -106,49 +102,18 @@ export default async function ReferenceImportPage({
     referenceImport.id,
   );
 
-  const summaryItems = [
-    ["Total documents", referenceImport.totalDocuments],
-    ["Imported", referenceImport.importedDocuments],
-    ["Skipped", referenceImport.skippedDocuments],
-    ["Failed", referenceImport.failedDocuments],
-    ["Persisted invoices", relatedData.invoiceCount],
-    ["Upload batches", relatedData.uploadBatchCount],
-  ];
-
   return (
     <PageContainer>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <p className="text-sm font-medium text-slate-500">
-            Reference Import
-          </p>
+      <PageHeader eyebrow="Reference import" title={referenceImport.originalFilename} description={`${referenceImport.returnPeriod} ${referenceImport.financialYear} · ${business.legalName}`} actions={<StatusBadge value={referenceImport.status} />} />
+      <p className="mt-2 break-all font-mono text-[11px] text-slate-500">Import ID · {referenceImport.id}</p>
 
-          <h1 className="mt-1 text-2xl font-semibold text-foreground">
-            {referenceImport.originalFilename}
-          </h1>
-
-          <p className="mt-2 break-all font-mono text-xs text-slate-500">
-            {referenceImport.id}
-          </p>
-        </div>
-
-        <span
-          className={`inline-flex w-fit items-center rounded-md px-3 py-1.5 text-sm font-medium ${statusStyles[referenceImport.status]}`}
-        >
-          {formatStatus(referenceImport.status)}
-        </span>
-      </div>
-
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {summaryItems.map(([label, value]) => (
-          <Card key={label} className="p-5">
-            <p className="text-sm text-slate-500">{label}</p>
-
-            <p className="mt-2 text-2xl font-semibold text-foreground">
-              {value}
-            </p>
-          </Card>
-        ))}
+      <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <StatCard label="Total documents" value={referenceImport.totalDocuments} detail="Documents in source file" icon={<Icon name="file" size={17} />} tone="blue" />
+        <StatCard label="Imported" value={referenceImport.importedDocuments} detail="Reference invoices ready" icon={<Icon name="check" size={17} />} tone="green" />
+        <StatCard label="Skipped" value={referenceImport.skippedDocuments} detail="Not imported" icon={<Icon name="activity" size={17} />} tone="neutral" />
+        <StatCard label="Failed" value={referenceImport.failedDocuments} detail="Needs review" icon={<Icon name="x" size={17} />} tone="red" />
+        <StatCard label="Persisted invoices" value={relatedData.invoiceCount} detail="Available for matching" icon={<Icon name="shield" size={17} />} tone="blue" />
+        <StatCard label="Upload batches" value={relatedData.uploadBatchCount} detail="Linked reconciliations" icon={<Icon name="activity" size={17} />} tone="neutral" />
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">

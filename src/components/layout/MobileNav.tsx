@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import WorkspaceNavLinks from "@/components/layout/WorkspaceNavLinks";
+import Icon from "@/components/ui/Icon";
 
 type MobileNavProps = {
   userInitial: string;
@@ -42,17 +43,12 @@ export default function MobileNav({ userInitial }: MobileNavProps) {
           "
           aria-label="Open navigation"
         >
-          ☰
+          <Icon name="menu" size={19} />
         </button>
 
-        <div className="text-center">
-          <p className="text-sm font-bold text-foreground">
-            ClearTax
-          </p>
-
-          <p className="text-[10px] text-slate-500">
-            Bulk Reconciliation
-          </p>
+        <div className="flex items-center gap-2">
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-xs font-bold text-white">C</span>
+          <p className="text-sm font-bold tracking-tight text-foreground">ClearTax</p>
         </div>
 
         <div
@@ -62,11 +58,11 @@ export default function MobileNav({ userInitial }: MobileNavProps) {
             w-8
             items-center
             justify-center
-            rounded-full
-            bg-primary
+            rounded-xl
+            bg-info-surface
             text-xs
             font-semibold
-            text-primary-foreground
+            text-info-foreground
           "
         >
           {userInitial}
@@ -122,14 +118,12 @@ export default function MobileNav({ userInitial }: MobileNavProps) {
             px-5
           "
         >
-          <div>
-            <p className="text-lg font-bold text-foreground">
-              ClearTax
-            </p>
-
-            <p className="text-xs text-slate-500">
-              Bulk Reconciliation
-            </p>
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-sm font-bold text-white">C</span>
+            <div>
+              <p className="text-[15px] font-bold tracking-tight text-foreground">ClearTax</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[.08em] text-slate-500">Tax operations</p>
+            </div>
           </div>
 
           <button
@@ -149,7 +143,7 @@ export default function MobileNav({ userInitial }: MobileNavProps) {
             "
             aria-label="Close navigation"
           >
-            ×
+            <Icon name="close" size={18} />
           </button>
         </div>
 
