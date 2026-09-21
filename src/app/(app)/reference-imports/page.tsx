@@ -6,12 +6,14 @@ import { requireCurrentUser } from "@/lib/auth";
 import { getPrismaClient } from "@/lib/prisma";
 import type { ReferenceImportStatus } from "@/generated/prisma/client";
 import ReferenceImportSetupForm from "@/components/reference-imports/ReferenceImportSetupForm";
+import PageHeader from "@/components/ui/PageHeader";
+import Icon from "@/components/ui/Icon";
 
 const statusStyles: Record<ReferenceImportStatus, string> = {
-  QUEUED: "bg-surface-muted text-slate-700",
-  PROCESSING: "bg-info-surface text-info-foreground",
-  READY: "bg-success-surface text-success-foreground",
-  FAILED: "bg-error-surface text-error-foreground",
+  QUEUED: "status-neutral",
+  PROCESSING: "status-info",
+  READY: "status-success",
+  FAILED: "status-error",
 };
 
 function formatDate(value: Date | null) {
@@ -76,31 +78,14 @@ export default async function ReferenceImportsPage() {
 
   return (
     <PageContainer>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">
-            Reference Imports
-          </h1>
-
-          <p className="mt-1 text-sm text-slate-500">
-            Persisted GSTR-2B reference datasets rendered on the server.
-          </p>
-        </div>
-
-        <Link
-          href="/"
-          className="inline-flex h-9 w-fit items-center justify-center rounded-md border border-border bg-surface px-4 text-sm font-medium text-foreground transition-colors hover:bg-surface-muted"
-        >
-          Back to dashboard
-        </Link>
-      </div>
+      <PageHeader eyebrow="Workspace" title="Reference imports" description="Manage the GSTR-2B datasets that power reconciliation matching." actions={<Link href="/" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border bg-surface px-4 text-sm font-semibold text-foreground transition-colors hover:bg-surface-muted"><Icon name="arrow-right" size={15} className="rotate-180" /> Dashboard</Link>} />
       <ReferenceImportSetupForm />
 
-      <Card className="mt-6 overflow-hidden">
+      <Card className="mt-7 overflow-hidden">
         {referenceImports.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[940px] text-left text-sm">
-              <thead className="bg-surface-muted text-xs uppercase tracking-wide text-slate-500">
+              <thead className="bg-surface-muted/70 text-[11px] uppercase tracking-[.08em] text-slate-500">
                 <tr>
                   <th className="px-5 py-3 font-medium">Import</th>
                   <th className="px-5 py-3 font-medium">Business</th>
@@ -158,7 +143,7 @@ export default async function ReferenceImportsPage() {
                     </td>
                     <td className="px-5 py-4">
                       <span
-                        className={`inline-flex w-fit items-center rounded-md px-2.5 py-1 text-xs font-medium ${statusStyles[referenceImport.status]}`}
+                        className={`status-badge ${statusStyles[referenceImport.status]}`}
                       >
                         {formatStatus(referenceImport.status)}
                       </span>

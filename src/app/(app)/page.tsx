@@ -3,6 +3,9 @@ import Link from "next/link";
 import { connection } from "next/server";
 import PageContainer from "@/components/layout/PageContainer";
 import Card from "@/components/ui/Card";
+import Icon from "@/components/ui/Icon";
+import PageHeader from "@/components/ui/PageHeader";
+import StatCard from "@/components/ui/StatCard";
 import { requireCurrentUser } from "@/lib/auth";
 import { getPrismaClient } from "@/lib/prisma";
 
@@ -55,18 +58,18 @@ type RecentImport = Prisma.ReferenceImportGetPayload<{
 }>;
 
 const uploadStatusStyles: Record<UploadBatchStatus, string> = {
-  QUEUED: "bg-surface-muted text-slate-700",
-  PROCESSING: "bg-info-surface text-info-foreground",
-  COMPLETED: "bg-success-surface text-success-foreground",
-  COMPLETED_WITH_ERRORS: "bg-warning-surface text-warning-foreground",
-  FAILED: "bg-error-surface text-error-foreground",
+  QUEUED: "status-neutral",
+  PROCESSING: "status-info",
+  COMPLETED: "status-success",
+  COMPLETED_WITH_ERRORS: "status-warning",
+  FAILED: "status-error",
 };
 
 const importStatusStyles: Record<ReferenceImportStatus, string> = {
-  QUEUED: "bg-surface-muted text-slate-700",
-  PROCESSING: "bg-info-surface text-info-foreground",
-  READY: "bg-success-surface text-success-foreground",
-  FAILED: "bg-error-surface text-error-foreground",
+  QUEUED: "status-neutral",
+  PROCESSING: "status-info",
+  READY: "status-success",
+  FAILED: "status-error",
 };
 
 function formatDate(value: Date | null) {
@@ -207,33 +210,14 @@ export default async function DashboardPage() {
     dashboardDataError = true;
   }
 
-  const summaryItems = [
-    ["Total uploads", totalUploads],
-    ["Processing", processingUploads],
-    ["Completed", completedUploads],
-    ["Needs attention", needsAttentionUploads],
-  ];
-
   return (
     <PageContainer>
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">
-            Dashboard
-          </h1>
-
-          <p className="mt-1 text-sm text-slate-500">
-            Server-rendered reconciliation activity from persisted batches.
-          </p>
-        </div>
-
-        <Link
-          href="/reconciliations"
-          className="inline-flex h-9 w-fit items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover"
-        >
-          View history
-        </Link>
-      </div>
+      <PageHeader
+        eyebrow="Operations overview"
+        title="Good morning, your workspace is ready"
+        description="Monitor imports and reconciliation batches from one place."
+        actions={<Link href="/reconciliations" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-white shadow-sm transition-all hover:bg-primary-hover active:translate-y-px"><Icon name="activity" size={16} /> View history</Link>}
+      />
       <UploadProgress
         referenceImports={recentImports.map((referenceImport) => ({
           id: referenceImport.id,
@@ -257,23 +241,18 @@ export default async function DashboardPage() {
         </Card>
       ) : null}
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {summaryItems.map(([label, value]) => (
-          <Card key={label} className="p-5">
-            <p className="text-sm text-slate-500">{label}</p>
-
-            <p className="mt-2 text-2xl font-semibold text-foreground">
-              {value}
-            </p>
-          </Card>
-        ))}
+      <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard label="Total uploads" value={totalUploads} detail="All purchase registers" icon={<Icon name="file" size={17} />} tone="blue" />
+        <StatCard label="In progress" value={processingUploads} detail="Queued or processing" icon={<Icon name="activity" size={17} />} tone="amber" />
+        <StatCard label="Completed" value={completedUploads} detail="Ready to review" icon={<Icon name="check" size={17} />} tone="green" />
+        <StatCard label="Needs attention" value={needsAttentionUploads} detail="Errors or mismatches" icon={<Icon name="warning" size={17} />} tone="red" />
       </div>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[1.4fr_1fr]">
         <Card className="overflow-hidden">
-          <div className="border-b border-border p-5">
+          <div className="border-b border-border p-5 sm:p-6">
             <div className="flex items-center justify-between gap-4">
-              <h2 className="font-semibold text-foreground">
+              <h2 className="text-base font-bold text-foreground">
                 Recent Reconciliation Batches
               </h2>
 
@@ -289,7 +268,7 @@ export default async function DashboardPage() {
           {recentBatches.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[760px] text-left text-sm">
-                <thead className="bg-surface-muted text-xs uppercase tracking-wide text-slate-500">
+                <thead className="bg-surface-muted/70 text-[11px] uppercase tracking-[.08em] text-slate-500">
                   <tr>
                     <th className="px-5 py-3 font-medium">File</th>
                     <th className="px-5 py-3 font-medium">GSTIN</th>
@@ -302,7 +281,7 @@ export default async function DashboardPage() {
 
                 <tbody className="divide-y divide-border">
                   {recentBatches.map((batch) => (
-                    <tr key={batch.id} className="hover:bg-surface-muted/50">
+                    <tr key={batch.id} className="transition-colors hover:bg-surface-muted/50">
                       <td className="px-5 py-4">
                         <Link
                           href={`/reconciliations/${batch.id}`}
@@ -330,10 +309,8 @@ export default async function DashboardPage() {
                       </td>
                       <td className="px-5 py-4">
                         <span
-                          className={`inline-flex w-fit items-center rounded-md px-2.5 py-1 text-xs font-medium ${uploadStatusStyles[batch.status]}`}
-                        >
-                          {formatStatus(batch.status)}
-                        </span>
+                          className={`status-badge ${uploadStatusStyles[batch.status]}`}
+                        ><span className="sr-only">Status: </span>{formatStatus(batch.status)}</span>
                       </td>
                     </tr>
                   ))}
@@ -348,9 +325,9 @@ export default async function DashboardPage() {
         </Card>
 
         <Card className="overflow-hidden">
-          <div className="border-b border-border p-5">
+          <div className="border-b border-border p-5 sm:p-6">
             <div className="flex items-center justify-between gap-4">
-              <h2 className="font-semibold text-foreground">
+              <h2 className="text-base font-bold text-foreground">
                 Reference Imports
               </h2>
 
@@ -384,7 +361,7 @@ export default async function DashboardPage() {
                     </div>
 
                     <span
-                      className={`inline-flex w-fit shrink-0 items-center rounded-md px-2.5 py-1 text-xs font-medium ${importStatusStyles[referenceImport.status]}`}
+                      className={`status-badge shrink-0 ${importStatusStyles[referenceImport.status]}`}
                     >
                       {formatStatus(referenceImport.status)}
                     </span>

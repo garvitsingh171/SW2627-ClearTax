@@ -11,7 +11,7 @@ export default function Input({
       className={`
         h-10
         w-full
-        rounded-md
+        rounded-lg
         border
         border-border
         bg-surface

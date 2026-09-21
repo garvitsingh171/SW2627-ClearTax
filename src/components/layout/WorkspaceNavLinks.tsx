@@ -2,22 +2,23 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import Icon, { type IconName } from "@/components/ui/Icon";
 
 const navigation = [
   {
     name: "Dashboard",
     href: "/",
-    icon: "▦",
+    icon: "grid" as IconName,
   },
   {
     name: "Reconciliations",
     href: "/reconciliations",
-    icon: "◷",
+    icon: "activity" as IconName,
   },
   {
     name: "Reference Imports",
     href: "/reference-imports",
-    icon: "⇄",
+    icon: "upload" as IconName,
   },
 ];
 
@@ -50,7 +51,7 @@ export default function WorkspaceNavLinks({
               flex
               items-center
               gap-3
-              rounded-md
+              rounded-lg
               px-3
               py-2.5
               text-sm
@@ -58,13 +59,13 @@ export default function WorkspaceNavLinks({
               ${linkClassName}
               ${
                 isActive
-                  ? "bg-info-surface text-info-foreground"
+                  ? "bg-info-surface text-info-foreground shadow-sm"
                   : "text-slate-600 hover:bg-surface-muted hover:text-foreground"
               }
             `}
           >
             <span className={iconClassName} aria-hidden="true">
-              {item.icon}
+              <Icon name={item.icon} size={17} />
             </span>
 
             <span>{item.name}</span>

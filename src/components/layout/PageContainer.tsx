@@ -13,9 +13,9 @@ export default function PageContainer({
         min-h-[calc(100vh-var(--ds-header-height))]
         w-full
         px-4
-        py-6
-        sm:px-6
-        lg:px-8
+        py-7
+        sm:px-7
+        lg:px-10
         ${className}
       `}
     >

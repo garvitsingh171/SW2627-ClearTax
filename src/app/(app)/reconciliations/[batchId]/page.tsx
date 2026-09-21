@@ -4,8 +4,11 @@ import { requireCurrentUser } from "@/lib/auth";
 import { getPrismaClient } from "@/lib/prisma";
 import PageContainer from "@/components/layout/PageContainer";
 import Card from "@/components/ui/Card";
+import PageHeader from "@/components/ui/PageHeader";
+import StatCard from "@/components/ui/StatCard";
+import StatusBadge from "@/components/ui/StatusBadge";
+import Icon from "@/components/ui/Icon";
 import { isUuid } from "@/lib/ids";
-import type { UploadBatchStatus } from "@/generated/prisma/client";
 import BatchControls from "@/components/batch/BatchControls";
 import ReconciliationResultsTable from "@/components/reconciliation/ReconciliationResultsTable";
 import type {
@@ -18,14 +21,6 @@ type ReconciliationBatchPageProps = {
   params: Promise<{
     batchId: string;
   }>;
-};
-
-const statusStyles: Record<UploadBatchStatus, string> = {
-  QUEUED: "bg-surface-muted text-slate-700",
-  PROCESSING: "bg-info-surface text-info-foreground",
-  COMPLETED: "bg-success-surface text-success-foreground",
-  COMPLETED_WITH_ERRORS: "bg-warning-surface text-warning-foreground",
-  FAILED: "bg-error-surface text-error-foreground",
 };
 
 function formatDate(value: Date | null) {
@@ -218,53 +213,24 @@ export default async function ReconciliationBatchPage({
       : null,
   }));
 
-  const summaryItems = [
-    ["Total rows", batch.totalRows],
-    ["Processed", batch.processedRows],
-    ["Matched", batch.matchedRows],
-    ["Mismatched", batch.mismatchedRows],
-    ["Errors", batch.errorRows],
-    ["Persisted rows", batch._count.rows],
-  ];
-
   return (
     <PageContainer>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <p className="text-sm font-medium text-slate-500">
-            Reconciliation Batch
-          </p>
+      <PageHeader
+        eyebrow="Reconciliation batch"
+        title={batch.originalFilename}
+        description={`${batch.referenceImport.returnPeriod} ${batch.referenceImport.financialYear} · ${batch.business.legalName}`}
+        actions={<StatusBadge value={batch.status} />}
+      />
+      <p className="mt-2 break-all font-mono text-[11px] text-slate-500">Batch ID · {batch.id}</p>
+      <BatchControls batchId={batch.id} status={formatStatus(batch.status)} />
 
-          <h1 className="mt-1 text-2xl font-semibold text-foreground">
-            {batch.originalFilename}
-          </h1>
-
-          <p className="mt-2 break-all font-mono text-xs text-slate-500">
-            {batch.id}
-          </p>
-          <BatchControls
-            batchId={batch.id}
-            status={formatStatus(batch.status)}
-          />
-        </div>
-
-        <span
-          className={`inline-flex w-fit items-center rounded-md px-3 py-1.5 text-sm font-medium ${statusStyles[batch.status]}`}
-        >
-          {formatStatus(batch.status)}
-        </span>
-      </div>
-
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {summaryItems.map(([label, value]) => (
-          <Card key={label} className="p-5">
-            <p className="text-sm text-slate-500">{label}</p>
-
-            <p className="mt-2 text-2xl font-semibold text-foreground">
-              {value}
-            </p>
-          </Card>
-        ))}
+      <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <StatCard label="Total rows" value={batch.totalRows} detail="Rows in uploaded register" icon={<Icon name="file" size={17} />} tone="blue" />
+        <StatCard label="Processed" value={`${batch.processedRows} / ${batch.totalRows}`} detail="Rows completed" icon={<Icon name="activity" size={17} />} tone="neutral" />
+        <StatCard label="Matched" value={batch.matchedRows} detail="Compared successfully" icon={<Icon name="check" size={17} />} tone="green" />
+        <StatCard label="Mismatched" value={batch.mismatchedRows} detail="Review recommended" icon={<Icon name="warning" size={17} />} tone="amber" />
+        <StatCard label="Errors" value={batch.errorRows} detail="Requires attention" icon={<Icon name="x" size={17} />} tone="red" />
+        <StatCard label="Persisted rows" value={batch._count.rows} detail="Available for inspection" icon={<Icon name="shield" size={17} />} tone="neutral" />
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
