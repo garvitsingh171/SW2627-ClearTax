@@ -95,6 +95,7 @@ export async function GET(
   const queryValidationResult = reconciliationResultsQuerySchema.safeParse({
     limit: searchParams.get("limit") ?? undefined,
     cursor: searchParams.get("cursor") ?? undefined,
+    result: searchParams.get("result") ?? undefined,
   });
 
   if (!queryValidationResult.success) {
@@ -105,7 +106,7 @@ export async function GET(
   }
 
   const { batchId } = paramsValidationResult.data;
-  const { cursor, limit } = queryValidationResult.data;
+  const { cursor, limit, result } = queryValidationResult.data;
 
   try {
     const prisma = getPrismaClient();
@@ -160,9 +161,15 @@ export async function GET(
       }
     }
 
-    const rows = await prisma.reconciliationRow.findMany({
+    const rowWhere = {
+      batchId,
+      ...(result ? { reconciliationResult: result } : {}),
+    };
+
+    const [rows, total] = await prisma.$transaction([
+      prisma.reconciliationRow.findMany({
       where: {
-        batchId,
+        ...rowWhere,
       },
       orderBy: {
         id: "asc",
@@ -177,7 +184,9 @@ export async function GET(
           }
         : {}),
       select: resultSelect,
-    });
+      }),
+      prisma.reconciliationRow.count({ where: rowWhere }),
+    ]);
 
     const hasMore = rows.length > limit;
     const results = hasMore ? rows.slice(0, limit) : rows;
@@ -190,6 +199,7 @@ export async function GET(
         pagination: {
           nextCursor,
           hasMore,
+          total,
         },
       }),
       {

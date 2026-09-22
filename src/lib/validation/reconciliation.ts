@@ -65,6 +65,9 @@ export const reconciliationResultsQuerySchema = z.object({
       .default(DEFAULT_RECONCILIATION_RESULTS_LIMIT),
   ),
   cursor: reconciliationResultCursorSchema.optional(),
+  result: z
+    .enum(["PENDING", "MATCHED", "MISMATCHED", "UNMATCHED", "ERROR"])
+    .optional(),
 });
 
 export const referenceImportUploadFormSchema = z.object({

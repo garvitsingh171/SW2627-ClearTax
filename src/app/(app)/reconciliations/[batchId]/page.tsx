@@ -107,7 +107,7 @@ export default async function ReconciliationBatchPage({
       batchId: batch.id,
     },
     orderBy: {
-      rowNumber: "asc",
+      id: "asc",
     },
     select: {
       id: true,
@@ -303,6 +303,10 @@ export default async function ReconciliationBatchPage({
         <ReconciliationResultsTable
           rows={serializedRows}
           batch={serializedBatch}
+          batchId={batch.id}
+          initialNextCursor={batch._count.rows > serializedRows.length ? serializedRows[serializedRows.length - 1]?.id ?? null : null}
+          initialHasMore={batch._count.rows > serializedRows.length}
+          initialTotal={batch._count.rows}
         />
       </Card>
     </PageContainer>
